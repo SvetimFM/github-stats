@@ -10,6 +10,9 @@ from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# Repos to exclude from stats (e.g. bulk data imports that skew LOC counts)
+EXCLUDED_REPOS = {"epstein-files-visualizations"}
+
 # ─── Data Fetching ───────────────────────────────────────────────────────────
 
 def gh_graphql(query):
@@ -297,9 +300,6 @@ def fetch_all_data():
 # ─── Data Analysis ───────────────────────────────────────────────────────────
 
 def analyze(data):
-    # Repos to exclude from all stats (outliers / bulk data imports)
-    EXCLUDED_REPOS = {"poopen"}
-
     cal = data["rolling_calendar"]
     days = []
     for week in cal.get("weeks", []):
@@ -820,7 +820,6 @@ def generate_html(data, analysis):
     loc_timeline_json = json.dumps(analysis["loc_timeline"])
     loc_by_month_json = json.dumps(analysis["loc_by_month"])
     repos_json = json.dumps(analysis["repo_details_by_impact"])
-    daily_velocity_json = json.dumps(analysis["daily_velocity"])
     project_cards_json = json.dumps(analysis["project_cards"])
     loc_month_repo_json = json.dumps(analysis["loc_month_repo_breakdown"])
 
@@ -1114,7 +1113,7 @@ def generate_html(data, analysis):
     <div class="card">
       <h2>Lines of Code Over Time</h2>
       <canvas id="locTimelineChart"></canvas>
-      <p style="color: var(--text-dim); font-size: 0.68rem; margin-top: 0.5rem; opacity: 0.7;">* Excludes <em>poopen</em> repo (~1.3M lines of committed text data)</p>
+      {"" if not EXCLUDED_REPOS else '<p style="color: var(--text-dim); font-size: 0.68rem; margin-top: 0.5rem; opacity: 0.7;">* ' + str(len(EXCLUDED_REPOS)) + ' repo(s) excluded from LOC stats</p>'}
     </div>
   </div>
 
@@ -1142,11 +1141,6 @@ def generate_html(data, analysis):
       <h2>Activity by Day of Week</h2>
       <canvas id="dayChart"></canvas>
     </div>
-  </div>
-
-  <div class="card">
-    <h2>Daily Velocity (Last 3 Months)</h2>
-    <canvas id="dailyVelocityChart" style="max-height: 250px;"></canvas>
   </div>
 
   <div class="card">
@@ -1200,7 +1194,6 @@ const YEARLY = {yearly_json};
 const LOC_TIMELINE = {loc_timeline_json};
 const LOC_BY_MONTH = {loc_by_month_json};
 const REPOS = {repos_json};
-const DAILY_VELOCITY = {daily_velocity_json};
 const PROJECT_CARDS = {project_cards_json};
 const LOC_MONTH_REPOS = {loc_month_repo_json};
 
@@ -1397,62 +1390,6 @@ new Chart(document.getElementById('dayChart'), {{
     scales: {{ x: {{ beginAtZero: true, grid: {{ color: '#21262d' }} }}, y: {{ grid: {{ display: false }} }} }}
   }}
 }});
-
-// ── Daily Velocity (Last 3 Months) ──
-(function() {{
-  if (DAILY_VELOCITY.length === 0) return;
-  // Compute 7-day moving average
-  const ma = DAILY_VELOCITY.map((d, i) => {{
-    const start = Math.max(0, i - 6);
-    const window = DAILY_VELOCITY.slice(start, i + 1);
-    const avg = window.reduce((s, x) => s + x.contributionCount, 0) / window.length;
-    return avg;
-  }});
-
-  new Chart(document.getElementById('dailyVelocityChart'), {{
-    type: 'bar',
-    data: {{
-      labels: DAILY_VELOCITY.map(d => d.date),
-      datasets: [
-        {{
-          label: 'Contributions',
-          data: DAILY_VELOCITY.map(d => d.contributionCount),
-          backgroundColor: DAILY_VELOCITY.map(d => d.contributionCount > 0 ? 'rgba(57, 211, 83, 0.5)' : 'rgba(57, 211, 83, 0.05)'),
-          borderRadius: 2, borderSkipped: false,
-          order: 2,
-        }},
-        {{
-          label: '7-day avg',
-          data: ma,
-          type: 'line',
-          borderColor: '#58a6ff',
-          borderWidth: 2,
-          pointRadius: 0,
-          pointHitRadius: 10,
-          tension: 0.3,
-          order: 1,
-        }}
-      ]
-    }},
-    options: {{
-      responsive: true,
-      plugins: {{ legend: {{ labels: {{ usePointStyle: true, pointStyle: 'circle', padding: 8 }} }} }},
-      scales: {{
-        y: {{ beginAtZero: true, grid: {{ color: '#21262d' }} }},
-        x: {{
-          grid: {{ display: false }},
-          ticks: {{
-            maxTicksLimit: 15,
-            callback: function(val) {{
-              const d = new Date(this.getLabelForValue(val));
-              return d.toLocaleDateString('default', {{ month: 'short', day: 'numeric' }});
-            }}
-          }}
-        }}
-      }}
-    }}
-  }});
-}})();
 
 // ── Project Cards (interactive) ──
 (function() {{
