@@ -357,11 +357,13 @@ def analyze(data):
     for d in days:
         month_totals[d["date"][:7]] += d["contributionCount"]
 
-    # Languages
+    # Languages (skip excluded repos and forks with no user contributions)
     lang_sizes = defaultdict(int)
     lang_colors = {}
     for repo in data["repos"]:
         if repo["name"] in EXCLUDED_REPOS:
+            continue
+        if repo.get("isFork") and repo.get("stats", {}).get("commits", 0) == 0:
             continue
         for edge in repo["languages"]["edges"]:
             name = edge["node"]["name"]
@@ -386,6 +388,8 @@ def analyze(data):
     loc_timeline = defaultdict(lambda: {"additions": 0, "deletions": 0, "commits": 0})
     for repo in data["repos"]:
         if repo["name"] in EXCLUDED_REPOS:
+            continue
+        if repo.get("isFork") and repo.get("stats", {}).get("commits", 0) == 0:
             continue
         for w in repo.get("stats", {}).get("weekly", []):
             ts = w["week"]
@@ -581,6 +585,8 @@ def analyze(data):
     loc_by_month_by_repo = defaultdict(lambda: defaultdict(lambda: {"additions": 0, "deletions": 0}))
     for repo in data["repos"]:
         if repo["name"] in EXCLUDED_REPOS:
+            continue
+        if repo.get("isFork") and repo.get("stats", {}).get("commits", 0) == 0:
             continue
         for w in repo.get("stats", {}).get("weekly", []):
             if w["additions"] > 0 or w["deletions"] > 0:
@@ -1234,7 +1240,7 @@ new Chart(document.getElementById('yearlyChart'), {{
     responsive: true,
     plugins: {{ legend: {{ labels: {{ usePointStyle: true, pointStyle: 'circle', padding: 8 }} }} }},
     scales: {{
-      y: {{ beginAtZero: true, stacked: true, grid: {{ color: '#21262d' }} }},
+      y: {{ beginAtZero: true, stacked: true, grid: {{ color: '#21262d' }}, title: {{ display: true, text: 'Contributions', color: '#7d8590', font: {{ size: 11 }} }} }},
       x: {{ stacked: true, grid: {{ display: false }} }}
     }}
   }}
@@ -1265,7 +1271,7 @@ new Chart(document.getElementById('yearlyChart'), {{
       responsive: true,
       plugins: {{ legend: {{ display: false }} }},
       scales: {{
-        y: {{ grid: {{ color: '#21262d' }}, ticks: {{ callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'k' : v }} }},
+        y: {{ grid: {{ color: '#21262d' }}, title: {{ display: true, text: 'Net Lines of Code', color: '#7d8590', font: {{ size: 11 }} }}, ticks: {{ callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'k' : v }} }},
         x: {{ grid: {{ display: false }}, ticks: {{
           maxTicksLimit: 10,
           callback: function(val) {{
@@ -1305,7 +1311,7 @@ const locMonthChart = new Chart(document.getElementById('locMonthChart'), {{
       tooltip: {{ callbacks: {{ footer: () => 'Click to drill down' }} }}
     }},
     scales: {{
-      y: {{ stacked: true, grid: {{ color: '#21262d' }}, ticks: {{ callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v <= -1000 ? (v/1000).toFixed(0)+'k' : v }} }},
+      y: {{ stacked: true, grid: {{ color: '#21262d' }}, title: {{ display: true, text: 'Lines (added / deleted)', color: '#7d8590', font: {{ size: 11 }} }}, ticks: {{ callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v <= -1000 ? (v/1000).toFixed(0)+'k' : v }} }},
       x: {{ stacked: true, grid: {{ display: false }}, ticks: {{ maxTicksLimit: 15 }} }}
     }}
   }}
@@ -1325,7 +1331,7 @@ new Chart(document.getElementById('monthlyChart'), {{
     responsive: true,
     plugins: {{ legend: {{ display: false }} }},
     scales: {{
-      y: {{ beginAtZero: true, grid: {{ color: '#21262d' }} }},
+      y: {{ beginAtZero: true, grid: {{ color: '#21262d' }}, title: {{ display: true, text: 'Contributions', color: '#7d8590', font: {{ size: 11 }} }} }},
       x: {{ grid: {{ display: false }} }}
     }}
   }}
@@ -1346,7 +1352,7 @@ new Chart(document.getElementById('weeklyChart'), {{
     responsive: true,
     plugins: {{ legend: {{ display: false }} }},
     scales: {{
-      y: {{ beginAtZero: true, grid: {{ color: '#21262d' }} }},
+      y: {{ beginAtZero: true, grid: {{ color: '#21262d' }}, title: {{ display: true, text: 'Contributions / week', color: '#7d8590', font: {{ size: 11 }} }} }},
       x: {{ grid: {{ display: false }}, ticks: {{
         maxTicksLimit: 10,
         callback: function(val) {{
